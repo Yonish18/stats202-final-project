@@ -1,0 +1,18 @@
+# Virtual environment
+myenv/
+
+# Data files
+*.csv
+*.zip
+
+# Kaggle API key
+kaggle.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Submission file
+submission.txt
+
+

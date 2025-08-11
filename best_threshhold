@@ -1,0 +1,54 @@
+# tune_threshold_histgb.py
+import numpy as np, pandas as pd
+from sklearn.model_selection import GroupKFold
+from sklearn.metrics import accuracy_score
+from sklearn.ensemble import HistGradientBoostingClassifier
+
+def add_feats(df):
+    df = df.copy()
+    for c in ["sig3","sig4","sig5","sig6"]:
+        if c in df.columns: df[f"log_{c}"] = np.log1p(df[c].astype(float))
+    eps = 1e-6
+    df["sig_ratio_21"] = df["sig2"]/(df["sig1"]+eps)
+    df["sig_sum_178"]  = df["sig1"]+df["sig7"]+df["sig8"]
+    df["hp_sig2"]      = df["is_homepage"]*df["sig2"]
+    g = df.groupby("query_id", group_keys=False)
+    for c in ["sig1","sig2","sig7","sig8"]:
+        df[f"{c}_qrank"] = g[c].rank(pct=True)
+        m = g[c].transform("mean"); s = g[c].transform("std").replace(0,np.nan)
+        df[f"{c}_qz"] = ((df[c]-m)/s).fillna(0.0)
+    return df
+
+train = pd.read_csv("training.csv")
+y = train["relevance"].astype(int)
+X = add_feats(train.drop(columns=["relevance"]))
+
+groups = X["query_id"].values
+X = X.drop(columns=["id","url_id","query_id"], errors="ignore")
+
+hgb = HistGradientBoostingClassifier(
+    max_depth=6,
+    learning_rate=0.06,
+    max_iter=350,
+    early_stopping=True,
+    validation_fraction=0.1,
+    random_state=42
+)
+
+gkf = GroupKFold(n_splits=3)
+probs, ys = [], []
+for tr, va in gkf.split(X, y, groups):
+    hgb.fit(X.iloc[tr], y.iloc[tr])
+    p = hgb.predict_proba(X.iloc[va])[:,1]
+    probs.append(p); ys.append(y.iloc[va].values)
+
+probs = np.concatenate(probs)
+ys = np.concatenate(ys)
+
+best_t, best_acc = 0.5, 0
+for t in np.linspace(0.45, 0.55, 41):  # tight scan around 0.5
+    acc = ( (probs >= t).astype(int) == ys ).mean()
+    if acc > best_acc:
+        best_acc, best_t = acc, t
+
+print(f"Best CV accuracy: {best_acc:.4f} at threshold {best_t:.3f}")

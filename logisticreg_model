@@ -1,0 +1,45 @@
+# make_submission_logreg.py
+
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.pipeline import Pipeline
+
+# load
+train = pd.read_csv("training.csv")
+test  = pd.read_csv("test.csv")
+
+y = train["relevance"].astype(int)
+X = train.drop(columns=["relevance", "id"])
+X_test = test.drop(columns=["id"])
+
+# keep same columns/order
+X_test = X_test[X.columns]
+
+# pipeline
+pipe = Pipeline([
+    ("scaler", StandardScaler(with_mean=True, with_std=True)),
+    ("logreg", LogisticRegressionCV(
+        Cs=[0.01, 0.03, 0.1, 0.3, 1, 3, 10],
+        cv=5,
+        penalty="l2",
+        solver="lbfgs",
+        class_weight="balanced",
+        max_iter=5000,
+        scoring="accuracy",
+        n_jobs=-1,
+        refit=True
+    ))
+])
+
+# train on full data
+pipe.fit(X, y)
+
+# predict labels (threshold 0.5)
+pred = pipe.predict(X_test).astype(int)
+
+# build submission (matches sample: id,relevance)
+submission = pd.DataFrame({"id": test["id"], "relevance": pred})
+submission.to_csv("submission.csv", index=False)
+print(f"✅ Wrote submission.csv with shape {submission.shape}")

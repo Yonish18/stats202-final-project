@@ -1,0 +1,17 @@
+------- RANDOMFOREST MODEL WITH 0.65772 ON KAGGLE -------
+Validation accuracy: 0.6656464709556528
+
+Confusion matrix (rows=true, cols=pred):
+[[6879 2133]
+ [3220 3778]]
+
+Classification report:
+              precision    recall  f1-score   support
+
+           0     0.6812    0.7633    0.7199      9012
+           1     0.6391    0.5399    0.5853      6998
+
+    accuracy                         0.6656     16010
+   macro avg     0.6602    0.6516    0.6526     16010
+weighted avg     0.6628    0.6656    0.6611     1601
+

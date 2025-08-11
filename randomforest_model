@@ -1,0 +1,119 @@
+# blend_nudge_submit.py
+# Purpose: generate a small set of "nudged" submissions by blending
+# HistGradientBoosting + Logistic at tiny weights and thresholds around 0.5.
+# Try a few on Kaggle to (hopefully) push 0.68018 -> 0.6802x without overshooting.
+
+import os
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+
+# ---------- feature engineering (same style as before) ----------
+def add_feats(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for c in ["sig3","sig4","sig5","sig6"]:
+        if c in df.columns:
+            df[f"log_{c}"] = np.log1p(df[c].astype(float))
+    eps = 1e-6
+    if "sig1" in df.columns and "sig2" in df.columns:
+        df["sig_ratio_21"] = df["sig2"] / (df["sig1"] + eps)
+    if all(c in df.columns for c in ["sig1","sig7","sig8"]):
+        df["sig_sum_178"]  = df["sig1"] + df["sig7"] + df["sig8"]
+    if "is_homepage" in df.columns and "sig2" in df.columns:
+        df["hp_sig2"]      = df["is_homepage"] * df["sig2"]
+
+    # per-query context: ranks + z-scores + simple aggregates (on a few strong signals)
+    if "query_id" in df.columns:
+        g = df.groupby("query_id", group_keys=False)
+        for c in ["sig1","sig2","sig7","sig8"]:
+            if c in df.columns:
+                df[f"{c}_qrank"] = g[c].rank(pct=True)
+                m = g[c].transform("mean")
+                s = g[c].transform("std").replace(0, np.nan)
+                df[f"{c}_qz"] = ((df[c] - m) / s).fillna(0.0)
+                df[f"{c}_qmean"] = m
+                df[f"{c}_qmax"]  = g[c].transform("max")
+                df[f"{c}_qmin"]  = g[c].transform("min")
+    return df
+
+# ---------- load ----------
+train = pd.read_csv("training.csv")
+test  = pd.read_csv("test.csv")
+
+y = train["relevance"].astype(int)
+X_feat = add_feats(train.drop(columns=["relevance"]))
+T_feat = add_feats(test.copy())
+
+# modeling columns: drop raw identifiers that can overfit
+drop_cols = ["id","url_id","query_id"]
+X = X_feat.drop(columns=[c for c in drop_cols if c in X_feat.columns])
+T = T_feat.drop(columns=[c for c in drop_cols if c in T_feat.columns], errors="ignore")
+
+# align columns
+T = T[X.columns]
+
+# ---------- train base models ----------
+# Fast, in-scope booster (your current best style)
+hgb = HistGradientBoostingClassifier(
+    max_depth=6,
+    learning_rate=0.06,
+    max_iter=350,
+    early_stopping=True,
+    validation_fraction=0.1,
+    random_state=42
+)
+
+# Simple, in-scope logistic with scaling
+logit = Pipeline([
+    ("scaler", StandardScaler()),
+    ("clf", LogisticRegression(
+        C=1.0,
+        class_weight="balanced",
+        max_iter=5000,
+        solver="lbfgs",
+        n_jobs=-1
+    ))
+])
+
+hgb.fit(X, y)
+logit.fit(X, y)
+
+# base probabilities
+ph = hgb.predict_proba(T)[:, 1]
+pl = logit.predict_proba(T)[:, 1]
+
+# base prediction at 0.5 (for flip counts)
+base_pred = (ph >= 0.5).astype(int)
+
+# ---------- tiny blend + threshold sweep ----------
+os.makedirs("subs", exist_ok=True)
+
+# Very small changes: weights close to your HGB-only model, thresholds ~0.5
+weights   = [0.90, 0.92, 0.94, 0.96, 0.98]   # weight on HGB (rest on Logistic)
+thresholds = [0.498, 0.499, 0.500, 0.501, 0.502]
+
+made = []
+for w in weights:
+    probs = w*ph + (1.0 - w)*pl
+    for t in thresholds:
+        pred = (probs >= t).astype(int)
+        flips = int(np.sum(pred != base_pred))  # how many rows differ vs pure HGB @ 0.5
+        sub = pd.DataFrame({"id": test["id"], "relevance": pred})
+        fname = f"subs/submission_blend_w{w:.2f}_thr{t:.3f}_flips{flips}.csv"
+        sub.to_csv(fname, index=False)
+        made.append((fname, flips))
+        print(f"Wrote {fname}  (changed {flips} rows vs HGB@0.500)")
+
+# Also write the exact HGB baseline in case you want to revert
+sub_base = pd.DataFrame({"id": test["id"], "relevance": base_pred})
+sub_base.to_csv("subs/submission_HGB_base_thr0.500.csv", index=False)
+print("Wrote subs/submission_HGB_base_thr0.500.csv")
+
+# Recommend a couple with small flip counts to try first
+small = sorted(made, key=lambda x: (x[1], x[0]))
+print("\nSuggestion: try 2–3 files with flip counts in ~5–30 range:\n")
+for name, flips in small[:6]:
+    print(f"  {name}  (flips={flips})")

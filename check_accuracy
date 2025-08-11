@@ -1,0 +1,66 @@
+# step_boost_eval.py
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.ensemble import GradientBoostingClassifier
+
+# ---- tiny, interpretable transforms ----
+def add_feats(df):
+    df = df.copy()
+    # log1p on count-ish features
+    for c in ["sig3","sig4","sig5","sig6"]:
+        if c in df.columns:
+            df[f"log_{c}"] = np.log1p(df[c].astype(float))
+    # simple ratios/sums/interactions
+    df["sig_ratio_21"] = df["sig2"] / (df["sig1"] + 1e-6)
+    df["sig_sum_178"]  = df["sig1"] + df["sig7"] + df["sig8"]
+    df["hp_sig2"]      = df["is_homepage"] * df["sig2"]
+    return df
+
+# ---- load & split ----
+train = pd.read_csv("training.csv")
+y = train["relevance"].astype(int)
+
+# drop id from features, then add engineered features
+X = train.drop(columns=["relevance", "id"])
+X = add_feats(X)
+
+X_tr, X_val, y_tr, y_val = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# ---- Gradient Boosting (book: boosting) ----
+gb = GradientBoostingClassifier(
+    n_estimators=400,      # more trees than default
+    learning_rate=0.05,    # smaller step size
+    max_depth=3,           # shallow trees (good bias-variance tradeoff)
+    subsample=0.8,         # stochastic boosting for generalization
+    max_features=None,     # try all features per split (you can try "sqrt" too)
+    random_state=42
+)
+gb.fit(X_tr, y_tr)
+
+# ---- threshold tuning on validation to maximize accuracy ----
+val_prob = gb.predict_proba(X_val)[:, 1]
+thresholds = np.linspace(0.3, 0.7, 81)  # search 0.30..0.70 in 0.005 steps
+best_thr, best_acc = 0.5, 0.0
+for t in thresholds:
+    pred_t = (val_prob >= t).astype(int)
+    acc_t = accuracy_score(y_val, pred_t)
+    if acc_t > best_acc:
+        best_acc, best_thr = acc_t, t
+
+print(f"Best validation accuracy: {best_acc:.4f} at threshold {best_thr:.3f}")
+
+# detailed report at best threshold
+val_pred = (val_prob >= best_thr).astype(int)
+print("\nConfusion matrix (rows=true, cols=pred):")
+print(confusion_matrix(y_val, val_pred))
+print("\nClassification report:")
+print(classification_report(y_val, val_pred, digits=4))
+
+# quick top features (GBC has feature_importances_)
+imp = pd.Series(gb.feature_importances_, index=X.columns).sort_values(ascending=False)
+print("\nTop 10 features:\n", imp.head(10))
