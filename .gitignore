@@ -1,18 +1,32 @@
-# Virtual environment
+# Virtual environments
+.venv/
+venv/
 myenv/
 
-# Data files
-*.csv
-*.zip
+# Raw data
+data/raw/*
+!data/raw/.gitkeep
 
-# Kaggle API key
+# Generated outputs
+results/submissions/*
+!results/submissions/.gitkeep
+results/validation/*
+!results/validation/.gitkeep
+
+# Legacy output locations
+submission.csv
+subs/
+
+# Credentials
 kaggle.json
+.env
 
 # Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 
-# Submission file
-submission.txt
+# Notebook checkpoints
+.ipynb_checkpoints/
 
-
+# OS files
+.DS_Store
