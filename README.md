@@ -50,7 +50,7 @@ Approximately:
 
 # Feature Engineering
 
-Several transformations were applied to improve model performance.
+Several transformations were applied to improve model performance during the final project analysis.
 
 ### Log Transformations
 
@@ -75,7 +75,7 @@ This captures **relative relevance within the query context**.
 
 ### Univariate Feature Strength
 
-To understand which signals were individually predictive, I computed **ROC‑AUC for each feature**.
+To understand which signals were individually predictive, I computed **ROC‑AUC for each feature** during exploratory analysis.
 
 ![Univariate AUC](report/figures/bar_univariate_auc_top20.png)
 
@@ -90,7 +90,7 @@ The strongest individual predictors included:
 
 # Models
 
-Two classification models were trained.
+Two classification models were explored.
 
 ## HistGradientBoostingClassifier
 
@@ -102,7 +102,7 @@ Advantages:
 - handles feature interactions automatically
 - robust to feature scaling
 
-Key parameters:
+Key parameters used during experimentation:
 
 ```
 max_depth = 6
@@ -121,20 +121,13 @@ Used for:
 - interpretability
 - coefficient inspection
 
-Features were **standardized using StandardScaler**, and `class_weight="balanced"` was used to account for mild class imbalance.
+Features were standardized using `StandardScaler`, and `class_weight="balanced"` was used to account for mild class imbalance during experiments.
 
 ---
 
 # Model Evaluation
 
-Using an **80/20 stratified train–validation split**, the models achieved:
-
-| Model | Validation Accuracy |
-|------|------|
-| HistGradientBoosting | **67.93%** |
-| Logistic Regression | 65.30% |
-
----
+The figures below summarize evaluation results from the final project analysis described in the report. The scripts in this repository focus primarily on generating prediction outputs rather than reproducing the full evaluation pipeline used during the report.
 
 ### Confusion Matrices
 
@@ -146,13 +139,11 @@ Using an **80/20 stratified train–validation split**, the models achieved:
 
 ![Logistic Confusion Matrix](report/figures/cm_val_logit.png)
 
-The boosting model achieved higher overall accuracy and a more balanced set of predictions.
-
 ---
 
 # Feature Importance
 
-The boosted model identified the following features as most important:
+The boosted model identified the following features as most influential during analysis:
 
 - `sig2`
 - `sig6`
@@ -164,7 +155,7 @@ The boosted model identified the following features as most important:
 
 # Logistic Regression Interpretation
 
-Looking at the coefficients helps understand which signals increase or decrease the probability of predicting relevance.
+Coefficient analysis was used to understand which signals increase or decrease the probability of predicting relevance.
 
 ### Positive coefficients
 
@@ -178,27 +169,20 @@ Looking at the coefficients helps understand which signals increase or decrease 
 
 # Model Blending
 
-Finally, I experimented with combining predictions from both models using a weighted average:
+During the final project analysis, I also experimented with combining predictions from both models using a weighted average:
 
 ```
 p_blend = w * p_hgb + (1 - w) * p_logistic
 ```
 
-Best validation parameters:
+Example parameters explored in the report analysis:
 
 ```
-w = 0.96
-threshold = 0.498
+w ≈ 0.96
+threshold ≈ 0.498
 ```
 
-Validation performance:
-
-| Model | Validation Accuracy |
-|------|------|
-| HGB baseline | 67.93% |
-| Blended model | **67.96%** |
-
-The improvement was small, but the blend produced slightly better validation accuracy than the single model.
+The blended model produced a small improvement in validation performance in the report experiments.
 
 ---
 
@@ -255,7 +239,7 @@ data/raw/test.csv
 
 Then run the scripts from the repository root.
 
-### 1. Create a validation split
+### 1. Preview the validation split
 
 ```
 python3 src/data/create_validation_split.py
@@ -287,9 +271,7 @@ Generated outputs are written to the `results/` directory.
 
 Full technical report:
 
-```
-report/STATS202_Final_Project_Report.pdf
-```
+[STATS202 Final Project Report](report/STATS202_Final_Project_Report.pdf)
 
 ---
 
