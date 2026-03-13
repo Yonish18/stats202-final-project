@@ -1,10 +1,10 @@
-# Predicting Query-URL Relevance (Stanford University STATS202 Final Project)
+# Predicting Query–URL Relevance (Stanford University STATS202 Final Project)
 
 Machine learning pipeline for predicting whether a URL is **relevant to a search query**, built using classification models and feature engineering techniques from statistical learning.
 
 I developed this project for **STATS 202: Statistical Learning and Data Science (Stanford Summer Session)**.
 
-The goal is to classify each query-URL pair as:
+The goal is to classify each query‑URL pair as:
 
 - **1 → Relevant**
 - **0 → Not Relevant**
@@ -28,6 +28,8 @@ Examples of raw signals:
 - `sig1` – `sig8` ranking signals
 - `query_length`
 - `is_homepage`
+
+> **Note:** The raw dataset files are not included in this repository. To run the code, place `training.csv` and `test.csv` inside `data/raw/`.
 
 ---
 
@@ -73,16 +75,16 @@ This captures **relative relevance within the query context**.
 
 ### Univariate Feature Strength
 
-We evaluated features individually using ROC‑AUC.
+To understand which signals were individually predictive, I computed **ROC‑AUC for each feature**.
 
-Top predictors included:
+![Univariate AUC](report/figures/bar_univariate_auc_top20.png)
+
+The strongest individual predictors included:
 
 - `sig2`
 - `sig2_qz`
 - `sig2_qrank`
 - `log_sig3`
-
-![Univariate AUC](report/figures/bar_univariate_auc_top20.png)
 
 ---
 
@@ -119,15 +121,15 @@ Used for:
 - interpretability
 - coefficient inspection
 
-Features were **standardized using StandardScaler**.
+Features were **standardized using StandardScaler**, and `class_weight="balanced"` was used to account for mild class imbalance.
 
 ---
 
 # Model Evaluation
 
-### Validation Accuracy
+Using an **80/20 stratified train–validation split**, the models achieved:
 
-| Model | Accuracy |
+| Model | Validation Accuracy |
 |------|------|
 | HistGradientBoosting | **67.93%** |
 | Logistic Regression | 65.30% |
@@ -136,21 +138,21 @@ Features were **standardized using StandardScaler**.
 
 ### Confusion Matrices
 
-#### Gradient Boosting
+**HistGradientBoosting**
 
 ![HGB Confusion Matrix](report/figures/cm_val_hgb.png)
 
-#### Logistic Regression
+**Logistic Regression**
 
 ![Logistic Confusion Matrix](report/figures/cm_val_logit.png)
 
-Gradient Boosting achieved higher overall accuracy and better balance across classes.
+The boosting model achieved higher overall accuracy and a more balanced set of predictions.
 
 ---
 
 # Feature Importance
 
-The most important features learned by the boosted model:
+The boosted model identified the following features as most important:
 
 - `sig2`
 - `sig6`
@@ -162,41 +164,41 @@ The most important features learned by the boosted model:
 
 # Logistic Regression Interpretation
 
-### Positive Predictors
+Looking at the coefficients helps understand which signals increase or decrease the probability of predicting relevance.
+
+### Positive coefficients
 
 ![Positive Coefficients](report/figures/logit_top_pos_coeffs.png)
 
-### Negative Predictors
+### Negative coefficients
 
 ![Negative Coefficients](report/figures/logit_top_neg_coeffs.png)
-
-These coefficients help explain which signals increase or decrease predicted relevance.
 
 ---
 
 # Model Blending
 
-Predictions from both models were combined:
+Finally, I experimented with combining predictions from both models using a weighted average:
 
 ```
 p_blend = w * p_hgb + (1 - w) * p_logistic
 ```
 
-Best validation configuration:
+Best validation parameters:
 
 ```
-weight = 0.96
+w = 0.96
 threshold = 0.498
 ```
 
 Validation performance:
 
-| Model | Accuracy |
+| Model | Validation Accuracy |
 |------|------|
 | HGB baseline | 67.93% |
 | Blended model | **67.96%** |
 
-The blend produced small but measurable gains.
+The improvement was small, but the blend produced slightly better validation accuracy than the single model.
 
 ---
 
@@ -205,13 +207,30 @@ The blend produced small but measurable gains.
 ```
 stats202-final-project
 │
-├── data/                # dataset files
-├── notebooks/           # exploratory analysis
-├── src/                 # modeling and feature engineering
+├── data/
+│   └── raw/                              # place training.csv and test.csv here
+│
+├── src/
+│   ├── data/
+│   │   └── create_validation_split.py
+│   ├── models/
+│   │   ├── generate_logistic_regression_submission.py
+│   │   ├── tune_hist_gradient_boosting_threshold.py
+│   │   └── generate_histgb_logreg_blend_submission.py
+│   └── utils/
+│       └── feature_engineering.py
+│
+├── results/
+│   ├── submissions/
+│   └── validation/
 │
 ├── report/
 │   ├── STATS202_Final_Project_Report.pdf
 │   └── figures/
+│
+├── archive/
+│   ├── legacy_gradient_boosting/
+│   └── legacy_random_forest/
 │
 ├── requirements.txt
 └── README.md
@@ -227,26 +246,40 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Train models:
+Place the raw dataset files in:
 
 ```
-python src/train_models.py
+data/raw/training.csv
+data/raw/test.csv
 ```
 
-Generate predictions:
+Then run the scripts from the repository root.
+
+### 1. Create a validation split
 
 ```
-python src/generate_submission.py
+python3 src/data/create_validation_split.py
 ```
 
----
+### 2. Generate Logistic Regression predictions
 
-# Key Takeaways
+```
+python3 src/models/generate_logistic_regression_submission.py
+```
 
-- **Feature engineering was the most important factor** in improving model performance.
-- Per‑query normalization significantly improved signal usefulness.
-- Tree‑based models captured nonlinear relationships better than logistic regression.
-- Model blending provided marginal improvements by combining strengths of both approaches.
+### 3. Tune the HistGradientBoosting threshold
+
+```
+python3 -m src.models.tune_hist_gradient_boosting_threshold
+```
+
+### 4. Generate blended HistGradientBoosting + Logistic Regression predictions
+
+```
+python3 -m src.models.generate_histgb_logreg_blend_submission
+```
+
+Generated outputs are written to the `results/` directory.
 
 ---
 
