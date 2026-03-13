@@ -2,7 +2,7 @@
 
 Machine learning pipeline for predicting whether a URL is **relevant to a search query**, built using classification models and feature engineering techniques from statistical learning.
 
-This project was developed for **STATS 202: Statistical Learning and Data Science (Stanford Summer Session)**.
+I developed this project for **STATS 202: Statistical Learning and Data Science (Stanford Summer Session)**.
 
 The goal is to classify each query-URL pair as:
 
